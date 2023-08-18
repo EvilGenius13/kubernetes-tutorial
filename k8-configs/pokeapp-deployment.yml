@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pokeapp-deployment
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: pokeapp
+  template:
+    metadata:
+      labels:
+        app: pokeapp
+    spec:
+      containers:
+        - name: pokeapp
+          image: evilgenius13/pokeapp:latest
+          ports:
+            - containerPort: 5000
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_PASSWORD
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: SECRET_KEY
+            - name: DATABASE_URL
+              value: postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgres-service:5432/pokeappdb
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pokeapp-service
+spec:
+  type: NodePort
+  ports:
+    - port: 5000
+      targetPort: 5000
+      nodePort: 30100
+  selector:
+    app: pokeapp
