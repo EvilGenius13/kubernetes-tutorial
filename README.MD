@@ -5,21 +5,39 @@ Throughout this tutorial, we'll cover various aspects of Kubernetes, including:
 
 - Utilizing config maps and secrets to securely store sensitive information within the cluster.
 - Leveraging deployments to host multiple containers within a single pod.
-- Managing data storage within the cluster using persistent volume claims and persistent volumes.
+- Managing data storage within the cluster.
 - Exploring stateful sets for hosting multiple containers within a single pod.
-- Using ingress to route traffic to our service and expose it to the outside world. *This is in the bonus section*
 
 By the end of this tutorial, you'll have a solid understanding of the fundamental concepts of Kubernetes and how to set up a basic web application within a Kubernetes cluster.
 
-If you have any specific questions or need further guidance, feel free to ask!
+## What is Kubernetes?
+Kubernetes is an open-source platform designed to automate deploying, scaling, and operating application containers. It groups containers that make up an application into logical units for easy management and discovery.
+
+Imagine you're running a busy restaurant. Each dish you serve is like a software application, and each kitchen appliance (oven, stove, etc.) is like a computer server. Managing even a few dishes and appliances can be complicated. What if you had hundreds or even thousands of them?
+
+That's where Kubernetes (often abbreviated as K8s) comes in. It's like having a kitchen manager for a big, busy restaurant.
+
+Here's what Kubernetes can do:
+
+1. Scheduling: Determines which appliances (servers) are best suited to cook each dish (run each application).
+
+2. Load Balancing: If one oven is overused and another is underused, it redistributes the dishes (traffic) to make sure everything cooks efficiently.
+
+3. Health Monitoring: Keeps an eye on all appliances and dishes. If an oven breaks down (a server crashes) or a dish gets ruined (an application fails), Kubernetes will try to fix the problem or replace what's lost.
+
+4. Scaling: If more guests arrive and you need to cook more dishes quickly (higher demand for an application), Kubernetes can add more ovens (servers) to help.
+
+5. Updates and Rollbacks: If you need to change a recipe (update an application), Kubernetes helps you do this smoothly, without taking everything off the menu.
 
 ## Prerequisites
 - [Docker](https://docs.docker.com/get-docker/) (Follow the instructions for your OS or install Docker Desktop)
+- [The YML Files](https://github.com/EvilGenius13/kubernetes-tutorial) (We will be using these later to configure our Kubernetes cluster)
 
 ## OPTIONAL - Take the flask app in this tutorial and build it yourself
-Before you choose, let's talk about what the image even is. This is from a previous project we did in class. The image is a flask app that connects to a postgres database.  It's a simple app that allows you to create a backpack of pokemon. First, you create an account, and then login. You can add pokemon to your backpack, remove pokemon from your backpack, and view your backpack.  The image is already built and pushed to dockerhub.
+Before you choose, let's talk about what the image even is. This is from a previous project I created for school. The image is a Flask app that connects to a Postgres database.  It's a simple app that allows you to create a backpack of pokemon. First, you create an account, and then login. You can add pokemon to your backpack, remove pokemon from your backpack, and view your backpack.  The image is already built and pushed to dockerhub.
 
 If you want to use the image that is already made, you can skip this step as it's hard coded into the yml files. You can skip to [here](#install-minikube--kubectl)
+
 If you want to build the image yourself start here: 
 **Note: You will need a dockerhub account** - [Dockerhub](https://hub.docker.com/)
 
@@ -27,9 +45,10 @@ If you want to build the image yourself start here:
 # Clone the repo
 git clone https://github.com/EvilGenius13/PokeBackpackFinal.git
 ```
-Create a `Dockerfile` in the **root** directory. (A dockerfile is a set of instructions that tells docker how to build your image)
-A dockerfile does not have an extension.  It's just called `Dockerfile`. Right click or click new file and simply type `Dockerfile` and hit enter.
-Fill your dockerfile with the following code:
+You will see we have a `Dockerfile` in the root directory. (A dockerfile is a set of instructions that tells docker how to build your image)
+A dockerfile does not have an extension.  It's just called `Dockerfile`. 
+This is what our dockerfile looks like:
+
 ```dockerfile
 # Base image
 FROM python:3.9
@@ -53,7 +72,8 @@ EXPOSE 5000
 CMD gunicorn app:app --bind 0.0.0.0:5000
 ```
 
-Now that we have our dockerfile, we can build our image. Let's start by logging in.
+Now that we have a bit of an understanding on our dockerfile, we can build our image. Let's start by logging in.
+
 ```bash
 docker login
 ```
@@ -78,23 +98,23 @@ Follow the instructions for your OS
 - [Kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/)
 
 ## What is Minikube?
-Minikube is essentially a Virtual Machine (VM) that runs Kubernetes. It's important to start it with the docker driver.  This means it will create a VM using docker instead of virtualbox which is a standalone VM system. 
+Minikube is essentially a Virtual Machine (VM) that runs Kubernetes.  It's a single node cluster that allows you to test out your Kubernetes deployments locally. It's great for testing and learning.
 
 ## What is Kubectl?
-Kubectl is the command line tool that allows you to interact with your Kubernetes cluster.  You can use it to create deployments, services, pods, and more.  You can also use it to get information about your cluster.
+Kubectl is the command line tool that allows you to interact with your Kubernetes cluster.  You can use it to create deployments, services, pods, and more.  You can also use it to get information about your cluster. Think of it like the terminal for your cluster.
 
 ## Start Minikube
-It's important to start it with the docker driver.  This means it will create a VM using docker instead of virtualbox which is a standalone VM system.
+We have two options here.  We can start minikube with the docker driver or the virtualbox driver. Virtualbox is a standalone VM system.
+For simplicity, we will use the docker driver, as virtualbox requires you to have virtualbox installed on your machine.
 Let's start by making docker the default driver for minikube.
 ```bash
 minikube config set driver docker
 ```
 Now we can start minikube. You can also specify the amount of memory you want to allocate to the VM. I recommend at least 4GB.
 ```bash
-minikube start --driver=docker
 minikube start --driver=docker --memory=4096
 ```
-You can now check the status of your cluster with the following command.
+You can check the status of your cluster with the following command.
 ```bash
 minikube status
 ```
@@ -115,17 +135,15 @@ minikube ip
 ```
 
 ## YAML or YML Files
-Now that we have our cluster up and running, we can start deploying our application.  Kubernetes needs instructions to deploy applications, and that's where YAML files come in. Think of these files as "recipe cards" that tell Kubernetes exactly how to set up and run your app. Here’s what each of our "recipe cards" does:
+Now that we have our cluster up and running, we can start deploying our application. Kubernetes needs instructions to deploy applications, and that's where YAML files come in. Think of these files as "recipe cards" that tell Kubernetes exactly how to set up and run your app. Here’s what each of our "recipe cards" does:
 
-ConfigMap (pokeapp-configmap.yml): Holds configuration data and settings. Imagine it as app settings that are external from the app itself.
+- ConfigMap (pokeapp-configmap.yml): Holds configuration data and settings. Imagine it as app settings that are external from the app itself.
 
-Secret (pokeapp-secret.yml): Safely stores sensitive data, like passwords. Picture it as a secure vault for app secrets.
+- Secret (pokeapp-secret.yml): Safely stores sensitive data, like passwords. Picture it as a secure vault for app secrets.
 
-PokeApp Deployment (pokeapp-deployment.yml): Tells Kubernetes how to run your app, like which image to use or how many replicas to create.
+- PokeApp Deployment (pokeapp-deployment.yml): Tells Kubernetes how to run your app, like which image to use or how many replicas to create.
 
-Postgres Deployment (postgres-deployment.yml): Just like the PokeApp Deployment but specifically for running the Postgres database.
-
-Ingress (pokeapp-ingress.yml): Think of this as the front door. It manages external access to the services, typically HTTP.
+- Postgres Deployment (postgres-deployment.yml): Just like the PokeApp Deployment but specifically for running the Postgres database.
 
 So, how does Kubernetes distinguish between these "recipe cards"? By using labels! In each file, there's a kind label. This kind acts like the title of the recipe card, telling Kubernetes the purpose of each file. For instance, if it reads kind: Deployment, Kubernetes knows it's about deploying an app or service.
 
@@ -143,7 +161,7 @@ Imagine a 'Secret' in Kubernetes as a special locked box, designed to hold your 
 
 - Why use it?: It's always a good idea to keep passwords and sensitive data out of your main application code. While the Base64 method isn't the most secure, it's a straightforward starting point in Kubernetes.
 
-- Filename: Our specific secret file is mongo-secret.yml.
+- Filename: Our specific secret file is `pokeapp-secret.yml`.
 
 - Contents: We're storing three bits of info here: a username, a password, and a secret word.
 
@@ -165,31 +183,30 @@ Postgres is an open source SQL database. Pokeapp is our flask based application.
 In our case, the Service and Deployment is separated by '---' in the same file.
 
 ### Names & Labels & Ports
-Name: Think of this as a unique nickname for your app in Kubernetes. It doesn't have to match the name of the Docker image. You'll use this "nickname" when you want to manage or refer to the app in Kubernetes commands.
+- Name: Think of this as a unique nickname for your app in Kubernetes. It doesn't have to match the name of the Docker image. You'll use this "nickname" when you want to manage or refer to the app in Kubernetes commands.
 
-Image: This is your application packed in a container, ready to be run. Kubernetes will fetch this from Docker Hub or other container registries.
+- Image: This is your application packed in a container, ready to be run. Kubernetes will fetch this from Docker Hub or other container registries.
 
-Label: Labels are like tags or sticky notes you put on deployments. If you have many apps running, labels help you quickly find and manage groups of related apps.
+- Label: Labels are like tags or sticky notes you put on deployments. If you have many apps running, labels help you quickly find and manage groups of related apps.
 
-Port (Container Port): Imagine your application inside the container has a door; this is that door number. In our case, it's 5000 for the pokeapp.
+- Port (Container Port): Imagine your application inside the container has a door; this is that door number. In our case, it's 5000 for the pokeapp.
 
-Target Port: When Kubernetes wants to send traffic into your container's door (port), it uses this. Think of it like a funnel directing traffic. It often matches the container port.
+- Target Port: When Kubernetes wants to send traffic into your container's door (port), it uses this. Think of it like a funnel directing traffic. It often matches the container port.
 
-NodePort: It's a special type of port in Kubernetes. If you want to access your app from outside Kubernetes, this port does the job. It's always between 30000-32767. For our pokeapp, we are using 30100.
+- NodePort: It's a special type of port in Kubernetes. If you want to access your app from outside Kubernetes, this port does the job. It's always between 30000-32767. For our pokeapp, we are using 30100.
 
-An Example:
-Let's say someone wants to visit your app. They knock on door number 30100 (NodePort). Kubernetes then directs (or funnels) them to door number 5000 (Target Port & Container Port) of the pokeapp container.
+- An Example: Let's say someone wants to visit your app. They knock on door number 30100 (NodePort). Kubernetes then directs (or funnels) them to door number 5000 (Target Port & Container Port) of the pokeapp container.
 
 ### Deploying to Kubernetes
 We need to give the cluster our config map and secret before we can deploy our application. This is because postgres and pokeapp require that information. We can do this with the following commands.
 ```bash
-kubectl apply -f mongo-config.yml
-kubectl apply -f mongo-secret.yml
+kubectl apply -f pokeapp-configmap.yml
+kubectl apply -f pokeapp-secret.yml
 ```
-Now we can deploy our application. Do the mongo dabatase first as the webapp depends on it.
+Now we can deploy our application. Deploy the postgres dabatase first, then the webapp, as it depends on the database.
 ```bash
-kubectl apply -f mongo.yml
-kubectl apply -f webapp.yml
+kubectl apply -f postgres-deployment.yml
+kubectl apply -f pokeapp-deployment.yml
 ```
 You can check the status of your deployments with the following command.
 ```bash
@@ -199,24 +216,33 @@ You can check the status of your pods with the following command.
 ```bash
 kubectl get pods
 ```
-### Add more replicas
-Wait, we're only running 1 database, and 1 webapp. We should scale our webapp for more traffic. We can do this with the following command.
+In either of these cases, you should see something saying 0/1. This means that the deployment is not ready yet. Once you see 1/1, you are ready to go.
+
+### Accessing the application
+Let's see if our application is working. We can access at using <minikube-ip>:30100.
+If you didn't write it down from earlier, don't worry! Type this into your terminal to get it.
 ```bash
-kubectl scale deployment webapp --replicas=3
+minikube ip
 ```
-Alternatively, you can edit the webapp-deployment.yml file and change the replicas to 3 and then run `kubectl apply -f webapp-deployment.yml`
+You should see a splash page with a default pokemon, and item. If this is the case, congratulations! You have successfully deployed your application to Kubernetes. We'll circle back to the webapp shortly.
+### Add more replicas
+Right now, we're only running 1 database, and 1 webapp. Maybe our app is going to start getting way more traffic. We should add more replicas of the webapp to handle this traffic. We can do this with the following command.
+```bash
+kubectl scale deployment pokeapp --replicas=3
+```
+Alternatively, you can edit the pokeapp-deployment.yml file and change the replicas to 3 and then run `kubectl apply -f pokeapp-deployment.yml`
 
 Now run `kubectl get pods` again and you should see 3 pods instead of 1. 
 
 ### Looking at the data and logs
-You can look at the data in your database with the following command.
-
-
-### Ingress
+If you've ever seen a flask app running, you've seen some of the basic information like the request method, the url, and the response code. We can see this information in the logs of our application. Let's find one our of webapps and check the logs.
 ```bash
-minikube addons enable ingress
+kubectl get pods
 ```
-Check the install
+Copy the name of one of the webapp pods and run the following command.
 ```bash
-kubectl get pods --all-namespaces
+kubectl logs <pod-name>
 ```
+Now you should see the logs of that pod. It's just like watching it in the terminal if you ran a Flask app locally.
+
+Congratulations! You now have a working local version of your Kubernetes cluster.
